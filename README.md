@@ -175,34 +175,6 @@ sequenceDiagram
 
 A common misconception is that "the LLM calls the tools." In reality, the LLM outputs a structured JSON request and **your application code** executes the actual functions.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     AGENT LOOP                              │
-│                                                             │
-│  messages = [system_prompt, user_message]                   │
-│                      │                                      │
-│                       ▼                                     │
-│              Groq LLM called                                │
-│                      │                                      │
-│         ┌────────────┴────────────┐                        │
-│         │                         │                         │
-│   has tool_calls?           no tool_calls                   │
-│         │                         │                         │
-│         ▼                         ▼                         │
-│   read tool name            FINAL REPLY → return            │
-│   + JSON arguments                                          │
-│         │                                                   │
-│         ▼                                                   │
-│   run real Python function                                  │
-│   (SerpAPI / yt-dlp / Gemini)                              │
-│         │                                                   │
-│         ▼                                                   │
-│   append result as role:"tool"                              │
-│         │                                                   │
-│         └──────────► Groq LLM called again                  │
-└─────────────────────────────────────────────────────────────┘
-```
-
 ### Actual message flow (what goes into the Groq API)
 
 ```
