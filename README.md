@@ -86,78 +86,31 @@ graph TD
 
 ```mermaid
 flowchart TD
-    A([👤 User types a query]) --> B[🖥️ Streamlit UI\napp.py]
-    B --> C[🤖 run_agent\nagent.py]
-    C --> D[📤 Groq API call\nwith tool definitions + conversation]
+    A([User types a query]) --> B[Streamlit UI\napp.py]
+    B --> C[run_agent\nagent.py]
+    C --> D[Groq API call\nwith tool definitions + conversation]
 
     D --> E{LLM response\nhas tool_calls?}
 
     E -- Yes --> F[Read tool name\n+ JSON arguments]
     F --> G{Which tool?}
 
-    G -- video_search_tool --> H[🔍 SerpAPI\nYouTube Search]
+    G -- video_search_tool --> H[SerpAPI\nYouTube Search]
     H --> I[Returns: URL, title,\nchannel, views]
     I --> J[Append tool result\nto conversation history]
     J --> D
 
-    G -- transcription_tool --> K[🎙️ Gemini 1.5 Flash\nMultimodal API]
+    G -- transcription_tool --> K[Gemini 1.5 Flash\nMultimodal API]
     K --> L[Returns: verbatim\ntranscript text]
     L --> M[Append tool result\nto conversation history]
     M --> D
 
-    E -- No tool_calls --> N[✅ Final LLM text reply]
-    N --> O[🖥️ Display in Streamlit]
-    O --> P[📥 Download as .txt]
+    E -- No tool_calls --> N[Final LLM text reply]
+    N --> O[Display in Streamlit]
+    O --> P[Download as .txt]
 ```
 
 ---
-
-### Detailed Tool-Calling Sequence (Message-Level)
-
-This is exactly what goes into and out of the Groq API on each loop iteration.
-
-```mermaid
-sequenceDiagram
-    participant U  as 👤 User
-    participant ST as 🖥️ Streamlit
-    participant AG as 🔄 Agent Loop
-    participant GR as 🧠 Groq LLM
-    participant SA as 🔍 SerpAPI
-    participant GM as 🎙️ Gemini
-
-    U  ->> ST: "Find a Python tutorial video and transcribe it"
-    ST ->> AG: run_agent(query)
-
-    Note over AG: Build initial messages array:<br/>[system_prompt, user_message]<br/>Pass tool definitions (JSON schemas)
-
-    AG ->> GR: POST /v1/chat/completions<br/>{messages, tools, tool_choice:"auto"}
-    GR -->> AG: assistant message with tool_calls:<br/>[{name:"video_search_tool", args:{query:"Python tutorial"}}]
-
-    Note over AG: LLM did NOT call SerpAPI.<br/>It just returned JSON saying<br/>"please call this for me".
-
-    AG ->> SA: video_search_tool(query="Python tutorial")
-    SA -->> AG: {url, title, channel, duration, views}
-
-    Note over AG: Append to messages:<br/>• assistant message (with tool_calls)<br/>• tool message (tool result JSON)
-
-    AG ->> GR: POST /v1/chat/completions<br/>{messages (now 4 items), tools}
-    GR -->> AG: assistant message with tool_calls:<br/>[{name:"transcription_tool", args:{video_url:"https://..."}}]
-
-    AG ->> GM: transcription_tool(video_url="https://...")
-    Note over GM: Gemini receives YouTube URL<br/>as multimodal FileData part.<br/>No downloading needed.
-    GM -->> AG: {transcription: "Hello and welcome to..."}
-
-    Note over AG: Append to messages:<br/>• assistant message (with tool_calls)<br/>• tool message (transcription result)
-
-    AG ->> GR: POST /v1/chat/completions<br/>{messages (now 6 items), tools}
-    GR -->> AG: Plain text reply — no tool_calls<br/>"Here is the transcript:\n..."
-
-    AG -->> ST: {response, video_info, transcript, steps}
-    ST -->> U: Shows transcript + source + download button
-```
-
----
-
 
 
 ## 📦 Dependencies
