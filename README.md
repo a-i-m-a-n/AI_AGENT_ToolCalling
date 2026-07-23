@@ -1,32 +1,46 @@
-# 🎬 AI Video Search & Transcription Agent
+# AI Video Search & Transcription Agent
 
-An **agentic AI system** that:
-1. Accepts a natural-language query from the user
-2. Autonomously calls tools to **find a YouTube video** (SerpAPI) and **transcribe it** (Gemini)
-3. Returns the verbatim transcript + video source, with a downloadable `.txt` file
+An agentic AI system that takes a natural-language prompt, finds a relevant YouTube video, and transcribes it verbatim — all driven by tool-calling under the hood.
 
-Built with **Groq (LLaMA 3.3-70B)** · **SerpAPI** · **Gemini 1.5 Flash** · **Streamlit**
+**Stack:** Groq (LLaMA 3.3-70B) · SerpAPI · Gemini 3.5 Flash · yt-dlp · Streamlit
 
 ---
 
-## 🔑 Setup
+## Project Structure
+
+```
+Tool_Calling/
+│
+├── app.py               ← Streamlit UI (entry point)
+├── agent.py             ← Groq agent loop + tool-calling logic
+├── tools.py             ← VideoSearchTool + TranscriptionTool
+│
+├── .env                 ← your API keys (never commit this)
+├── .env.example         ← template to copy from
+├── .gitignore
+├── requirements.txt
+│
+└── transcripts/         ← auto-created on first run
+    └── <video_id>.txt   ← saved transcript per video
+```
+
+---
+
+## Setup
 
 ```bash
-# 1. Clone / download the project
-cd video_agent
-
-# 2. Install dependencies
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# 3. Set up API keys
+# 2. Add your API keys
 cp .env.example .env
-# Edit .env and paste your keys
+# Open .env and fill in the three keys
 
-# 4. Run
+# 3. Run
 streamlit run app.py
 ```
 
-### API keys you need
+### API Keys
 
 | Key | Where to get it |
 |-----|----------------|
@@ -36,26 +50,38 @@ streamlit run app.py
 
 ---
 
-## 🗂️ Project Structure
+## How It Works — Full Workflow
 
 ```
-video_agent/
-├── app.py            ← Streamlit UI
-├── agent.py          ← AI agent + tool-calling loop (Groq)
-├── tools.py          ← Tool implementations (SerpAPI + Gemini)
-├── requirements.txt
-├── .env.example      ← Copy to .env and fill in your keys
-└── README.md         ← You are here
+graph TD
+    User([User Prompt]) --> Agent{AI Agent app.py / agent.py}
+    Agent -- 1. Search Query --> Tool1[VideoSearchTool]
+    Tool1 -- SerpApi YouTube Engine --> YouTubeURL[YouTube URL]
+    YouTubeURL --> Agent
+    Agent -- 2. Video URL --> Tool2[TranscriptionTool]
+    Tool2 -- yt-dlp --> LocalAudio[Local M4A Audio]
+    LocalAudio -- Files Upload --> GeminiFiles[Gemini Files API]
+    GeminiFiles -- Multimodal Speech-to-Text --> TranscriptText[Transcript Text]
+    TranscriptText -- Save File --> FileSystem[transcripts/video_id.txt]
+    FileSystem --> Tool2
+    Tool2 --> Agent
+    Agent --> UserFinal[Agent Final Reply & Video Embed]
 ```
+
+### Step by step
+
+1. User types a topic into the Streamlit UI
+2. Groq LLM agent receives the prompt and decides to call `video_search_tool`
+3. SerpAPI queries the YouTube engine and returns the top result (URL, title, channel)
+4. Agent receives the URL and calls `transcription_tool`
+5. `yt-dlp` downloads the best available non-DASH audio (`m4a` → `webm` → fallback)
+6. Audio file is uploaded to the Gemini Files API
+7. Gemini transcribes the audio verbatim using the model fallback chain
+8. Transcript is saved to `transcripts/<video_id>.txt`
+9. Agent returns the raw transcript text to Streamlit
+10. UI shows the video embed, transcript, metadata, and a download button
 
 ---
-
-## 🔧 How Tool Calling Works — Under the Hood
-
-> **Common misconception:** "The LLM calls the tools."
->
-> **Reality:** The LLM *outputs a structured JSON request* saying *"I want to call this function with these arguments."* Your **application code** reads that JSON, executes the real Python function, and feeds the result back to the LLM.
-
 ### High-Level Flow
 
 ```mermaid
@@ -132,84 +158,75 @@ sequenceDiagram
 
 ---
 
-### What Each File Does
 
-#### `tools.py` — The Real Workers
-
-| Function | API Called | What it does |
-|----------|-----------|-------------|
-| `video_search_tool(query)` | SerpAPI `/search?engine=youtube` | Returns top YouTube result: URL, title, channel |
-| `transcription_tool(video_url)` | Gemini 1.5 Flash | Passes YouTube URL as `FileData(file_uri=...)`, returns verbatim transcript |
-
-```python
-# Gemini accepts YouTube URLs natively — no video download needed
-video_part = genai.protos.Part(
-    file_data=genai.protos.FileData(
-        file_uri=video_url,   # ← full YouTube URL goes here
-        mime_type="video/*",
-    )
-)
-response = model.generate_content([video_part, "Transcribe this video..."])
-```
-
-#### `agent.py` — The Orchestrator
-
-```python
-# Tool definitions tell the LLM WHAT tools exist and their parameter schemas
-TOOL_DEFINITIONS = [
-    {"type": "function", "function": {"name": "video_search_tool", ...}},
-    {"type": "function", "function": {"name": "transcription_tool", ...}},
-]
-
-# The agentic loop
-while True:
-    response = groq_client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=messages,          # full conversation history
-        tools=TOOL_DEFINITIONS,
-    )
-    if response has tool_calls:
-        execute tools → append results to messages → loop again
-    else:
-        return final answer          # LLM decided it's done
-```
-
-#### `app.py` — The Interface
-
-- Text input for user query
-- Live `st.status` panel showing each agent step in real time
-- Video metadata card (title, channel, duration, views)
-- Scrollable transcript box
-- Download button (`transcript_YYYYMMDD_HHMMSS.txt`)
-- Tool call log with expandable JSON for each step
-
----
-
-## 🧩 Why Use an Agent Instead of Hardcoding the Steps?
-
-In this project the two steps (search → transcribe) are fixed, so you *could* hardcode them. But the agent pattern gives you:
-
-- **Flexibility** — add more tools (summarise, translate, sentiment) without changing control flow
-- **Error recovery** — the LLM can retry or pick a different video if one step fails
-- **Natural language routing** — the agent can decide to skip transcription if the user only asked for the URL
-
----
 
 ## 📦 Dependencies
 
 | Package | Purpose |
 |---------|---------|
 | `groq` | Groq SDK — LLaMA 3.3-70B for the agent |
-| `google-generativeai` | Gemini 1.5 Flash for video transcription |
+| `google-generativeai` | Gemini 3.5 Flash for video transcription |
 | `streamlit` | Web UI |
 | `requests` | HTTP calls to SerpAPI |
 | `python-dotenv` | Load `.env` API keys |
 
 ---
+## How Tool Calling Works Under the Hood
 
-## ⚠️ Notes
+A common misconception is that "the LLM calls the tools." In reality, the LLM outputs a structured JSON request and **your application code** executes the actual functions.
 
-- **Video length:** Gemini 1.5 Flash supports up to ~1 hour of video. Very long videos may hit token limits — prefer shorter clips.
-- **SerpAPI free tier:** 100 searches/month. Upgrade for production use.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     AGENT LOOP                              │
+│                                                             │
+│  messages = [system_prompt, user_message]                   │
+│                      │                                      │
+│                       ▼                                     │
+│              Groq LLM called                                │
+│                      │                                      │
+│         ┌────────────┴────────────┐                        │
+│         │                         │                         │
+│   has tool_calls?           no tool_calls                   │
+│         │                         │                         │
+│         ▼                         ▼                         │
+│   read tool name            FINAL REPLY → return            │
+│   + JSON arguments                                          │
+│         │                                                   │
+│         ▼                                                   │
+│   run real Python function                                  │
+│   (SerpAPI / yt-dlp / Gemini)                              │
+│         │                                                   │
+│         ▼                                                   │
+│   append result as role:"tool"                              │
+│         │                                                   │
+│         └──────────► Groq LLM called again                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Actual message flow (what goes into the Groq API)
+
+```
+Call 1 →  [system, user]
+           LLM responds: tool_calls → video_search_tool
+
+Call 2 →  [system, user, assistant(tool_calls), tool(search result)]
+           LLM responds: tool_calls → transcription_tool
+
+Call 3 →  [system, user, assistant, tool, assistant(tool_calls), tool(transcript)]
+           LLM responds: plain text → DONE
+```
+
+The LLM never executes code. It only reads results that your code ran and appended.
+
+---
+
+##  Notes
+
+- **Private or age-gated videos** cannot be downloaded by yt-dlp without providing cookies
+- **SerpAPI free tier** allows 100 searches/month — upgrade for production use
+- **Gemini Files API** auto-deletes uploaded files after 48 hours; the tool also deletes them immediately after transcription in the `finally` block
+- `transcripts/` folder is created automatically on first run — no manual setup needed
+- The `.env` file is in `.gitignore` — your keys will never be accidentally committed
+
 - **Groq rate limits:** LLaMA 3.3-70B has generous free-tier limits; check https://console.groq.com for current quotas.
 - **Private/age-gated videos:** Gemini cannot transcribe YouTube videos that require login.
