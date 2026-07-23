@@ -129,34 +129,6 @@ with st.sidebar:
 
     st.divider()
 
-    # Workflow
-    st.markdown("### Workflow")
-    st.markdown("""
-<div class="workflow-box">
-User Prompt<br>
-  ↓<br>
-Agent (Groq / LLaMA)<br>
-  ↓  1. search query<br>
-VideoSearchTool<br>
-  → SerpAPI YouTube Engine<br>
-  → YouTube URL<br>
-  ↓  2. video URL<br>
-TranscriptionTool<br>
-  → yt-dlp → M4A audio<br>
-  → Gemini Files API<br>
-  → Gemini 3.5 Flash*<br>
-  → transcript text<br>
-  → transcripts/id.txt<br>
-  ↓<br>
-Agent Final Reply<br>
-+ Video Embed in UI<br>
-<br>
-* with fallback chain
-</div>
-""", unsafe_allow_html=True)
-
-    st.divider()
-
     # Gemini fallback info
     st.markdown("### Gemini Model Fallback")
     st.caption("Tried in order until one succeeds:")
