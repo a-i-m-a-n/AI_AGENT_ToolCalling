@@ -185,6 +185,21 @@ def run_agent(
                                      "content": json.dumps(result)})
                     continue
 
+            # HARD OVERRIDE: never trust the LLM to correctly copy the URL
+            # from the search result into this call. Models frequently pass
+            # a hallucinated placeholder (e.g. "{result of ...}.url") or a
+            # mangled string instead of the real value. We already have the
+            # real URL in video_info from step 1 — use that instead of
+            # whatever the model typed.
+            if fn_name == "transcription_tool":
+                if not video_info.get("url"):
+                    result = {"error": "transcription_tool called before a successful video_search_tool result."}
+                    steps.append({"tool": fn_name, "args": fn_args, "result": result})
+                    messages.append({"role": "tool", "tool_call_id": tc.id,
+                                     "content": json.dumps(result)})
+                    continue
+                fn_args["video_url"] = video_info["url"]
+
             # Run the real function
             fn = TOOL_MAP.get(fn_name)
             result = fn(**fn_args) if fn else {"error": f"Unknown tool: {fn_name}"}

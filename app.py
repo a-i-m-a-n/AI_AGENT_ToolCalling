@@ -113,8 +113,7 @@ with st.sidebar:
     st.markdown("### API Keys")
     KEYS = {
         "GROQ_API_KEY":   "Groq  (LLaMA agent)",
-        "GEMINI_API_KEY": "Gemini  (transcription)",
-        "SERPAPI_KEY":    "SerpAPI  (video search)",
+        "SERPAPI_KEY":    "SerpAPI  (search + transcript)",
     }
     all_ok = True
     for k, label in KEYS.items():
@@ -129,13 +128,31 @@ with st.sidebar:
 
     st.divider()
 
-    # Gemini fallback info
-    st.markdown("### Gemini Model Fallback")
-    st.caption("Tried in order until one succeeds:")
-    st.code("gemini-3.5-flash\ngemini-3.5-flash-lite\ngemini-3.1-flash-lite", language="text")
+    # Workflow
+    st.markdown("### Workflow")
+    st.markdown("""
+<div class="workflow-box">
+User Prompt<br>
+  ↓<br>
+Agent (Groq / LLaMA)<br>
+  ↓  1. search query<br>
+VideoSearchTool<br>
+  → SerpAPI YouTube Engine<br>
+  → YouTube URL<br>
+  ↓  2. video URL<br>
+TranscriptionTool<br>
+  → SerpAPI Transcript Engine<br>
+  → YouTube captions<br>
+  → transcript text<br>
+  → transcripts/id.txt<br>
+  ↓<br>
+Agent Final Reply<br>
++ Video Embed in UI
+</div>
+""", unsafe_allow_html=True)
 
     st.divider()
-    st.caption("Stack: Groq · SerpAPI · Gemini · yt-dlp · Streamlit")
+    st.caption("Stack: Groq · SerpAPI · Streamlit")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Header
@@ -143,7 +160,7 @@ with st.sidebar:
 
 st.markdown('<h1 class="page-title">AI Video Search & Transcription Agent</h1>',
             unsafe_allow_html=True)
-st.markdown('<p class="page-sub">Groq (LLaMA 3.3-70B) · SerpAPI · Gemini 3.5 Flash · yt-dlp</p>',
+st.markdown('<p class="page-sub">Groq (LLaMA 3.3-70B) · SerpAPI Search + Transcript</p>',
             unsafe_allow_html=True)
 st.divider()
 
@@ -229,7 +246,7 @@ if run_btn:
             # Model used + saved path
             if model_used:
                 st.markdown(
-                    f'<p class="meta-row">Gemini model used: {model_used}</p>',
+                    f'<p class="meta-row">Transcript source: {model_used}</p>',
                     unsafe_allow_html=True,
                 )
             if saved_path:
@@ -303,4 +320,4 @@ if run_btn:
 # ─────────────────────────────────────────────────────────────────────────────
 
 st.divider()
-st.caption("AI Video Agent · Groq LLaMA 3.3-70B · SerpAPI · Gemini 3.5 Flash · yt-dlp · Streamlit")
+st.caption("AI Video Agent · Groq LLaMA 3.3-70B · SerpAPI Search + Transcript · Streamlit")
