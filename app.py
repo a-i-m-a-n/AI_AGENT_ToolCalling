@@ -171,9 +171,9 @@ st.divider()
 user_query = st.text_area(
     "What video would you like to transcribe?",
     placeholder=(
-        "e.g.  'Python tutorial for beginners'\n"
-        "      'How do black holes form'\n"
-        "      'Denzel Washington motivational speech'"
+        "e.g.  'Python in 2 minutes'\n"
+        "      'Generative AI explained in 2 minutes'\n"
+        "      'How black holes are formed'"
     ),
     height=100,
     key="user_query",
